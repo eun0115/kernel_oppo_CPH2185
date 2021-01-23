@@ -59,7 +59,7 @@
 
 #ifdef VENDOR_EDIT
 //Liang.Zhang@PSW.TECH.BOOTUP, 2019/01/22, Add for monitor kernel error
-#include "../../../../../../vendor/oppo/oppo_phoenix/kernel/oppo_phoenix/oppo_phoenix.h"
+#include "../drivers/soc/oppo/oppo_phoenix/oppo_phoenix.h"
 extern int hwt_happened;
 extern void deal_fatal_err(void);
 #endif  // VENDOR_EDIT

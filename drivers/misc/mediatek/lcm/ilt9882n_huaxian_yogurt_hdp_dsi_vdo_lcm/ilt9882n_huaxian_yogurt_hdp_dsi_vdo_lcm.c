@@ -103,7 +103,7 @@ static struct LCM_UTIL_FUNCS lcm_util;
 #define FALSE 0
 #endif
 //extern unsigned int esd_recovery_backlight_level;
-extern int gesture_flag;
+//extern int gesture_flag;
 __attribute__((weak)) void lcd_resume_load_ili_fw(void)
 {
     return;
@@ -389,12 +389,12 @@ static void lcm_init_power(void)
 static void lcm_suspend_power(void)
 {
 	pr_debug("lcm_suspend_power\n");
-	if(!gesture_flag){
-		printk("lcm_tp_suspend_power_on\n");
-		SET_LCM_VSN_PIN(0);
-		MDELAY(2);
-		SET_LCM_VSP_PIN(0);
-	}
+//	if(!gesture_flag){
+//		printk("lcm_tp_suspend_power_on\n");
+//		SET_LCM_VSN_PIN(0);
+//		MDELAY(2);
+//		SET_LCM_VSP_PIN(0);
+//	}
 
 }
 

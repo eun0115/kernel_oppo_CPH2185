@@ -1500,7 +1500,7 @@ static int e4defrag_start_thread(struct super_block *sb)
 	dfi->tree.root = RB_ROOT;
 	ngroups = ext4_get_groups_count(sb);
 	dfi->groups =
-	    kvmalloc(ngroups * sizeof(struct defrag_group_state), GFP_KERNEL);
+	    kmalloc(ngroups * sizeof(struct defrag_group_state), GFP_KERNEL);
 	if (ZERO_OR_NULL_PTR(dfi->groups))
 		return -1;
 	for (group = 0; group < ngroups; group++)

@@ -118,3 +118,11 @@ all.config
 
 # fetched Android config fragments
 kernel/configs/android-*.cfg
+
+out/
+AnyKernel/
+cph2185.sh
+clang/
+gcc/
+gcc32/
+log.txt

@@ -1377,6 +1377,14 @@ static void __ip6_rt_update_pmtu(struct dst_entry *dst, const struct sock *sk,
 		return;
 
 	dst_confirm(dst);
+#ifdef VENDOR_EDIT
+	//Huang.junyuan@PSW.CN.WiFi.Network.internet, 2020/06/08,
+	//ipv6 RFC8201 test
+	if (mtu < IPV6_MIN_MTU) {
+		return;
+	}
+#endif /* VENDOR_EDIT */
+
 	mtu = max_t(u32, mtu, IPV6_MIN_MTU);
 	if (mtu >= dst_mtu(dst))
 		return;
@@ -2441,6 +2449,31 @@ struct rt6_info *rt6_get_dflt_router(const struct in6_addr *addr, struct net_dev
 	read_unlock_bh(&table->tb6_lock);
 	return rt;
 }
+
+#ifdef CONFIG_MTK_IPV6_VZW
+struct rt6_info *rt6_get_dflt_router_expires(struct net_device *dev)
+{
+	struct rt6_info *rt;
+	struct fib6_table *table;
+	#define RTF_ADGE (RTF_ADDRCONF | RTF_DEFAULT | RTF_GATEWAY | RTF_EXPIRES)
+
+	table = fib6_get_table(dev_net(dev),
+			       addrconf_rt_table(dev, RT6_TABLE_MAIN));
+	if (!table)
+		return NULL;
+
+	read_lock_bh(&table->tb6_lock);
+	for (rt = table->tb6_root.leaf; rt; rt = rt->dst.rt6_next) {
+		if (dev == rt->dst.dev &&
+		    ((rt->rt6i_flags & RTF_ADGE) == RTF_ADGE))
+			break;
+	}
+	if (rt)
+		dst_hold(&rt->dst);
+	read_unlock_bh(&table->tb6_lock);
+	return rt;
+}
+#endif
 
 struct rt6_info *rt6_add_dflt_router(const struct in6_addr *gwaddr,
 				     struct net_device *dev,

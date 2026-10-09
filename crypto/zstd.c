@@ -22,7 +22,10 @@
 #include <linux/zstd.h>
 
 
-#define ZSTD_DEF_LEVEL	3
+#ifdef ODM_WT_EDIT
+// Qun.LinQun.Lin@ODM_WT.Memroy.Performance, 2020/04/17, change ZSTD_DEF_LEVEL to 1 for low memory device -- cherry-pick the solution from monet
+#define ZSTD_DEF_LEVEL	1
+#endif/*ODM_WT_EDIT*/
 
 struct zstd_ctx {
 	ZSTD_CCtx *cctx;
@@ -33,7 +36,10 @@ struct zstd_ctx {
 
 static ZSTD_parameters zstd_params(void)
 {
-	return ZSTD_getParams(ZSTD_DEF_LEVEL, 0, 0);
+#ifdef ODM_WT_EDIT
+// Qun.LinQun.Lin@ODM_WT.Memroy.Performance, 2020/04/17, adjust zstd -- cherry-pick the solution from monet
+	return ZSTD_getParams(ZSTD_DEF_LEVEL, PAGE_SIZE, 0);
+#endif/*ODM_WT_EDIT*/
 }
 
 static int zstd_comp_init(struct zstd_ctx *ctx)

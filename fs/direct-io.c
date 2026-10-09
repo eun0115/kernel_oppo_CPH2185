@@ -37,7 +37,12 @@
 #include <linux/uio.h>
 #include <linux/atomic.h>
 #include <linux/prefetch.h>
+#include <linux/hie.h>
 
+#if defined(VENDOR_EDIT) && defined(CONFIG_OPPO_IOMONITOR)
+/* Hank.liu@TECH.PLAT.Storage, 2020-02-18, add fs daily info*/
+#include <soc/oppo/oppo_iomonitor.h>
+#endif
 /*
  * How many user pages to map in one call to get_user_pages().  This determines
  * the size of a structure in the slab cache
@@ -388,6 +393,8 @@ dio_bio_alloc(struct dio *dio, struct dio_submit *sdio,
 
 	sdio->bio = bio;
 	sdio->logical_offset_in_bio = sdio->cur_page_fs_offset;
+
+	hie_set_dio_crypt_context(dio->inode, bio, sdio->cur_page_fs_offset);
 }
 
 /*
@@ -799,6 +806,10 @@ submit_page_section(struct dio *dio, struct dio_submit *sdio, struct page *page,
 		 * Read accounting is performed in submit_bio()
 		 */
 		task_io_account_write(len);
+#if defined(VENDOR_EDIT) && defined(CONFIG_OPPO_IOMONITOR)
+/* Hank.liu@TECH.PLAT.Storage, 2020-02-18, add fs daily info*/
+		iomonitor_update_rw_stats(DIO_WRITE, NULL, len);
+#endif
 	}
 
 	/*

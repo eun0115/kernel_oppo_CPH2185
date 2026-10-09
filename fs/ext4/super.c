@@ -38,6 +38,7 @@
 #include <linux/log2.h>
 #include <linux/crc16.h>
 #include <linux/cleancache.h>
+#include <linux/hie.h>
 #include <asm/uaccess.h>
 
 #include <linux/kthread.h>
@@ -80,6 +81,11 @@ static void ext4_unregister_li_request(struct super_block *sb);
 static void ext4_clear_request_list(void);
 static struct inode *ext4_get_journal_inode(struct super_block *sb,
 					    unsigned int journal_inum);
+
+#if defined(VENDOR_EDIT) && defined(CONFIG_EXT4_ASYNC_DISCARD_SUPPORT)
+static void ext4_umount_begin(struct super_block *sb);
+extern void stop_discard_thread(struct ext4_sb_info *sbi);
+#endif
 
 /*
  * Lock ordering
@@ -822,6 +828,23 @@ static void dump_orphan_list(struct super_block *sb, struct ext4_sb_info *sbi)
 	}
 }
 
+#ifdef CONFIG_QUOTA
+static int ext4_quota_off(struct super_block *sb, int type);
+
+static inline void ext4_quota_off_umount(struct super_block *sb)
+{
+	int type;
+
+	/* Use our quota_off function to clear inode flags etc. */
+	for (type = 0; type < EXT4_MAXQUOTAS; type++)
+		ext4_quota_off(sb, type);
+}
+#else
+static inline void ext4_quota_off_umount(struct super_block *sb)
+{
+}
+#endif
+
 static void ext4_put_super(struct super_block *sb)
 {
 	struct ext4_sb_info *sbi = EXT4_SB(sb);
@@ -829,8 +852,19 @@ static void ext4_put_super(struct super_block *sb)
 	int aborted = 0;
 	int i, err;
 
+#ifdef CONFIG_OPLUS_FEATURE_EXT4_DEFRAG
+/* yanwu@TECH.Storage.FS.EXT4, 2020/02/29, support ext4 defrag */
+	if (!sb_rdonly(sb) && test_opt2(sb, BG_DEFRAG)) {
+		e4defrag_exit(sb);
+	}
+#endif
+
+#if defined(VENDOR_EDIT) && defined(CONFIG_EXT4_ASYNC_DISCARD_SUPPORT)
+//yh@PSW.BSP.Storage.EXT4, 2018-11-26 add for ext4 async discard suppot
+	destroy_discard_cmd_control(sbi);
+#endif
 	ext4_unregister_li_request(sb);
-	dquot_disable(sb, -1, DQUOT_USAGE_ENABLED | DQUOT_LIMITS_ENABLED);
+	ext4_quota_off_umount(sb);
 
 	flush_workqueue(sbi->rsv_conversion_wq);
 	destroy_workqueue(sbi->rsv_conversion_wq);
@@ -1205,7 +1239,6 @@ static int ext4_mark_dquot_dirty(struct dquot *dquot);
 static int ext4_write_info(struct super_block *sb, int type);
 static int ext4_quota_on(struct super_block *sb, int type, int format_id,
 			 struct path *path);
-static int ext4_quota_off(struct super_block *sb, int type);
 static int ext4_quota_on_mount(struct super_block *sb, int type);
 static ssize_t ext4_quota_read(struct super_block *sb, int type, char *data,
 			       size_t len, loff_t off);
@@ -1259,6 +1292,9 @@ static const struct super_operations ext4_sops = {
 	.unfreeze_fs	= ext4_unfreeze,
 	.statfs		= ext4_statfs,
 	.remount_fs	= ext4_remount,
+#if defined(VENDOR_EDIT) && defined(CONFIG_EXT4_ASYNC_DISCARD_SUPPORT)	
+	.umount_begin   = ext4_umount_begin,
+#endif	
 	.show_options	= ext4_show_options,
 #ifdef CONFIG_QUOTA
 	.quota_read	= ext4_quota_read,
@@ -1294,8 +1330,16 @@ enum {
 	Opt_nomblk_io_submit, Opt_block_validity, Opt_noblock_validity,
 	Opt_inode_readahead_blks, Opt_journal_ioprio,
 	Opt_dioread_nolock, Opt_dioread_lock,
+#if defined(VENDOR_EDIT) && defined(CONFIG_EXT4_ASYNC_DISCARD_SUPPORT)
+//yh@PSW.BSP.Storage.EXT4, 2018-11-26 add for ext4 async discard suppot
+	Opt_async_discard, Opt_noasync_discard,
+#endif
 	Opt_discard, Opt_nodiscard, Opt_init_itable, Opt_noinit_itable,
 	Opt_max_dir_size_kb, Opt_nojournal_checksum,
+#ifdef CONFIG_OPLUS_FEATURE_EXT4_DEFRAG
+/* yanwu@TECH.Storage.FS.EXT4, 2020/02/29, support ext4 defrag */
+	Opt_defrag,
+#endif
 };
 
 static const match_table_t tokens = {
@@ -1372,6 +1416,11 @@ static const match_table_t tokens = {
 	{Opt_dioread_lock, "dioread_lock"},
 	{Opt_discard, "discard"},
 	{Opt_nodiscard, "nodiscard"},
+#if defined(VENDOR_EDIT) && defined(CONFIG_EXT4_ASYNC_DISCARD_SUPPORT)
+//yh@PSW.BSP.Storage.EXT4, 2018-11-26 add for ext4 async discard suppot
+	{Opt_async_discard, "async_discard"},
+	{Opt_noasync_discard, "noasync_discard"},
+#endif
 	{Opt_init_itable, "init_itable=%u"},
 	{Opt_init_itable, "init_itable"},
 	{Opt_noinit_itable, "noinit_itable"},
@@ -1382,6 +1431,10 @@ static const match_table_t tokens = {
 	{Opt_removed, "reservation"},	/* mount option from ext2/3 */
 	{Opt_removed, "noreservation"}, /* mount option from ext2/3 */
 	{Opt_removed, "journal=%u"},	/* mount option from ext2/3 */
+#ifdef CONFIG_OPLUS_FEATURE_EXT4_DEFRAG
+/* yanwu@TECH.Storage.FS.EXT4, 2020/02/29, support ext4 defrag */
+	{Opt_defrag, "defrag=%s"},	/* background on-line defrag */
+#endif
 	{Opt_err, NULL},
 };
 
@@ -1510,6 +1563,11 @@ static const struct mount_opts {
 	 MOPT_EXT4_ONLY | MOPT_SET},
 	{Opt_dioread_lock, EXT4_MOUNT_DIOREAD_NOLOCK,
 	 MOPT_EXT4_ONLY | MOPT_CLEAR},
+#if defined(VENDOR_EDIT) && defined(CONFIG_EXT4_ASYNC_DISCARD_SUPPORT)
+//yh@PSW.BSP.Storage.EXT4, 2018-11-26 add for ext4 async discard suppot
+	{Opt_async_discard, EXT4_MOUNT_ASYNC_DISCARD, MOPT_SET},
+	{Opt_noasync_discard, EXT4_MOUNT_ASYNC_DISCARD, MOPT_CLEAR},
+#endif
 	{Opt_discard, EXT4_MOUNT_DISCARD, MOPT_SET},
 	{Opt_nodiscard, EXT4_MOUNT_DISCARD, MOPT_CLEAR},
 	{Opt_delalloc, EXT4_MOUNT_DELALLOC,
@@ -1582,6 +1640,10 @@ static const struct mount_opts {
 	{Opt_jqfmt_vfsv1, QFMT_VFS_V1, MOPT_QFMT},
 	{Opt_max_dir_size_kb, 0, MOPT_GTE0},
 	{Opt_test_dummy_encryption, 0, MOPT_GTE0},
+#ifdef CONFIG_OPLUS_FEATURE_EXT4_DEFRAG
+/* yanwu@TECH.Storage.FS.EXT4, 2020/02/29, support ext4 defrag */
+	{Opt_defrag, 0, MOPT_EXT4_ONLY | MOPT_STRING},
+#endif
 	{Opt_err, 0, 0}
 };
 
@@ -1815,6 +1877,26 @@ static int handle_mount_opt(struct super_block *sb, char *opt, int token,
 		sbi->s_mount_opt |= m->mount_opt;
 	} else if (token == Opt_data_err_ignore) {
 		sbi->s_mount_opt &= ~m->mount_opt;
+#ifdef CONFIG_OPLUS_FEATURE_EXT4_DEFRAG
+/* yanwu@TECH.Storage.FS.EXT4, 2020/02/29, support ext4 defrag */
+	} else if (token == Opt_defrag) {
+		char *name = match_strdup(&args[0]);
+		if (!name) {
+			ext4_msg(sb, KERN_ERR, "error: could not dup "
+				 "defrag option");
+			return -1;
+		}
+		if (strlen(name) == 2 && !strncmp(name, "on", 2)) {
+			set_opt2(sb, BG_DEFRAG);
+		} else if (strlen(name) == 3 && !strncmp(name, "off", 3)) {
+			clear_opt2(sb, BG_DEFRAG);
+		} else {
+			ext4_msg(sb, KERN_ERR, "error: invalid defrag option");
+			kfree(name);
+			return -1;
+		}
+		kfree(name);
+#endif
 	} else {
 		if (!args->from)
 			arg = 1;
@@ -2032,6 +2114,11 @@ static int _ext4_show_options(struct seq_file *seq, struct super_block *sb,
 		SEQ_OPTS_PUTS("data_err=abort");
 	if (DUMMY_ENCRYPTION_ENABLED(sbi))
 		SEQ_OPTS_PUTS("test_dummy_encryption");
+#ifdef CONFIG_OPLUS_FEATURE_EXT4_DEFRAG
+/* yanwu@TECH.Storage.FS.EXT4, 2020/02/29, support ext4 defrag */
+	if (!sb_rdonly(sb) && test_opt2(sb, BG_DEFRAG))
+		SEQ_OPTS_PUTS("defrag=on");
+#endif
 
 	ext4_show_quota_options(seq, sb);
 	return 0;
@@ -3571,7 +3658,13 @@ static int ext4_fill_super(struct super_block *sb, void *data, int silent)
 	if (!parse_options((char *) data, sb, &journal_devnum,
 			   &journal_ioprio, 0))
 		goto failed_mount;
-
+#if defined(VENDOR_EDIT) && defined(CONFIG_EXT4_ASYNC_DISCARD_SUPPORT)
+//yh@PSW.BSP.Storage.EXT4, 2019-02-15 add for ext4 async discard suppot
+	if (test_opt(sb, ASYNC_DISCARD)&&test_opt(sb,DISCARD)) {
+        clear_opt(sb, DISCARD);
+        ext4_msg(sb, KERN_WARNING, "mount option discard/async_discard conflict, use async_discard default");        
+    }
+#endif
 	if (test_opt(sb, DATA_FLAGS) == EXT4_MOUNT_JOURNAL_DATA) {
 		printk_once(KERN_WARNING "EXT4-fs: Warning: mounting "
 			    "with data=journal disables delayed "
@@ -4272,13 +4365,25 @@ no_journal:
 	} else
 		descr = "out journal";
 
-	if (test_opt(sb, DISCARD)) {
+	if (test_opt(sb, DISCARD) 
+#if defined(VENDOR_EDIT) && defined(CONFIG_EXT4_ASYNC_DISCARD_SUPPORT)
+//yh@PSW.BSP.Storage.EXT4, 2019-02-16 add for ext4 async discard suppot
+        || test_opt(sb, ASYNC_DISCARD)
+#endif
+    ) {
 		struct request_queue *q = bdev_get_queue(sb->s_bdev);
 		if (!blk_queue_discard(q))
 			ext4_msg(sb, KERN_WARNING,
 				 "mounting with \"discard\" option, but "
 				 "the device does not support discard");
 	}
+
+#ifdef CONFIG_OPLUS_FEATURE_EXT4_DEFRAG
+/* yanwu@TECH.Storage.FS.EXT4, 2020/02/29, support ext4 defrag */
+	if (!sb_rdonly(sb) && test_opt2(sb, BG_DEFRAG)) {
+		e4defrag_init(sb);
+	}
+#endif
 
 	if (___ratelimit(&ext4_mount_msg_ratelimit, "EXT4-fs mount"))
 		ext4_msg(sb, KERN_INFO, "mounted filesystem with%s. "
@@ -4296,6 +4401,16 @@ no_journal:
 	ratelimit_state_init(&sbi->s_msg_ratelimit_state, 5 * HZ, 10);
 
 	kfree(orig_data);
+#if defined(VENDOR_EDIT) && defined(CONFIG_EXT4_ASYNC_DISCARD_SUPPORT)
+//yh@PSW.BSP.Storage.EXT4, 2018-11-26 add for ext4 async discard suppot
+	if (test_opt(sb, ASYNC_DISCARD)) {
+		sbi->interval_time = DEF_IDLE_INTERVAL;
+		err = create_discard_cmd_control(sbi);
+		if (err)
+			ext4_msg(sb, KERN_ERR, "mount creat async discard thread fail");
+    }
+	ext4_update_time(sbi);
+#endif
 	return 0;
 
 cantfind_ext4:
@@ -4913,6 +5028,22 @@ struct ext4_mount_options {
 #endif
 };
 
+#if defined(VENDOR_EDIT) && defined(CONFIG_EXT4_ASYNC_DISCARD_SUPPORT)
+static void ext4_umount_begin(struct super_block *sb)
+{
+	/*
+	 * this is called at the begin of umount to stop discard thread
+	 */
+
+	if(test_opt(sb, ASYNC_DISCARD))
+	{
+		ext4_msg(sb, KERN_WARNING, "stopping discard thread...");
+		stop_discard_thread(EXT4_SB(sb));
+	}
+
+}
+#endif
+
 static int ext4_remount(struct super_block *sb, int *flags, char *data)
 {
 	struct ext4_super_block *es;
@@ -5017,6 +5148,12 @@ static int ext4_remount(struct super_block *sb, int *flags, char *data)
 		}
 
 		if (*flags & MS_RDONLY) {
+#ifdef CONFIG_OPLUS_FEATURE_EXT4_DEFRAG
+/* yanwu@TECH.Storage.FS.EXT4, 2020/02/29, support ext4 defrag */
+			if (test_opt2(sb, BG_DEFRAG)) {
+				e4defrag_exit(sb);
+			}
+#endif
 			err = sync_filesystem(sb);
 			if (err < 0)
 				goto restore_opts;
@@ -5116,6 +5253,14 @@ static int ext4_remount(struct super_block *sb, int *flags, char *data)
 	ext4_setup_system_zone(sb);
 	if (sbi->s_journal == NULL && !(old_sb_flags & MS_RDONLY))
 		ext4_commit_super(sb, 1);
+#ifdef CONFIG_OPLUS_FEATURE_EXT4_DEFRAG
+/* yanwu@TECH.Storage.FS.EXT4, 2020/02/29, support ext4 defrag */
+	if (!sb_rdonly(sb) && test_opt2(sb, BG_DEFRAG)) {
+		e4defrag_init(sb);
+	} else {
+		e4defrag_exit(sb);
+	}
+#endif
 
 #ifdef CONFIG_QUOTA
 	/* Release old quota file names */
@@ -5403,11 +5548,33 @@ static int ext4_quota_on(struct super_block *sb, int type, int format_id,
 		if (err)
 			return err;
 	}
+
 	lockdep_set_quota_inode(path->dentry->d_inode, I_DATA_SEM_QUOTA);
 	err = dquot_quota_on(sb, type, format_id, path);
-	if (err)
+	if (err) {
 		lockdep_set_quota_inode(path->dentry->d_inode,
 					     I_DATA_SEM_NORMAL);
+	} else {
+		struct inode *inode = d_inode(path->dentry);
+		handle_t *handle;
+
+		/*
+		 * Set inode flags to prevent userspace from messing with quota
+		 * files. If this fails, we return success anyway since quotas
+		 * are already enabled and this is not a hard failure.
+		 */
+		inode_lock(inode);
+		handle = ext4_journal_start(inode, EXT4_HT_QUOTA, 1);
+		if (IS_ERR(handle))
+			goto unlock_inode;
+		EXT4_I(inode)->i_flags |= EXT4_NOATIME_FL | EXT4_IMMUTABLE_FL;
+		inode_set_flags(inode, S_NOATIME | S_IMMUTABLE,
+				S_NOATIME | S_IMMUTABLE);
+		ext4_mark_inode_dirty(handle, inode);
+		ext4_journal_stop(handle);
+unlock_inode:
+		inode_unlock(inode);
+	}
 	return err;
 }
 
@@ -5484,24 +5651,40 @@ static int ext4_quota_off(struct super_block *sb, int type)
 {
 	struct inode *inode = sb_dqopt(sb)->files[type];
 	handle_t *handle;
+	int err;
 
 	/* Force all delayed allocation blocks to be allocated.
 	 * Caller already holds s_umount sem */
 	if (test_opt(sb, DELALLOC))
 		sync_filesystem(sb);
 
-	if (!inode)
+	if (!inode || !igrab(inode))
 		goto out;
 
-	/* Update modification times of quota files when userspace can
-	 * start looking at them */
+	err = dquot_quota_off(sb, type);
+	if (err || ext4_has_feature_quota(sb))
+		goto out_put;
+
+	inode_lock(inode);
+	/*
+	 * Update modification times of quota files when userspace can
+	 * start looking at them. If we fail, we return success anyway since
+	 * this is not a hard failure and quotas are already disabled.
+	 */
 	handle = ext4_journal_start(inode, EXT4_HT_QUOTA, 1);
 	if (IS_ERR(handle))
-		goto out;
+		goto out_unlock;
+	EXT4_I(inode)->i_flags &= ~(EXT4_NOATIME_FL | EXT4_IMMUTABLE_FL);
+	inode_set_flags(inode, 0, S_NOATIME | S_IMMUTABLE);
 	inode->i_mtime = inode->i_ctime = CURRENT_TIME;
 	ext4_mark_inode_dirty(handle, inode);
 	ext4_journal_stop(handle);
-
+out_unlock:
+	inode_unlock(inode);
+out_put:
+	lockdep_set_quota_inode(inode, I_DATA_SEM_NORMAL);
+	iput(inode);
+	return err;
 out:
 	return dquot_quota_off(sb, type);
 }
@@ -5689,6 +5872,44 @@ static struct file_system_type ext4_fs_type = {
 };
 MODULE_ALIAS_FS("ext4");
 
+#ifdef CONFIG_EXT4_ENCRYPTION
+int ext4_set_bio_ctx(struct inode *inode,
+	struct bio *bio)
+{
+	return fscrypt_set_bio_ctx(inode, bio);
+}
+
+static int __ext4_set_bio_ctx(struct inode *inode,
+	struct bio *bio)
+{
+	if (inode->i_sb->s_magic != EXT4_SUPER_MAGIC)
+		return -EINVAL;
+
+	return fscrypt_set_bio_ctx(inode, bio);
+}
+
+static int __ext4_key_payload(struct bio_crypt_ctx *ctx,
+	const char *data, const unsigned char **key)
+{
+	if (ctx->bc_fs_type != EXT4_SUPER_MAGIC)
+		return -EINVAL;
+
+	return fscrypt_key_payload(ctx, data, key);
+}
+
+struct hie_fs ext4_hie = {
+	.name = "ext4",
+	.key_payload = __ext4_key_payload,
+	.set_bio_context = __ext4_set_bio_ctx,
+	.priv = NULL,
+};
+#else
+int ext4_set_bio_ctx(struct inode *inode, struct bio *bio)
+{
+	return 0;
+}
+#endif
+
 /* Shared across all ext4 file systems */
 wait_queue_head_t ext4__ioend_wq[EXT4_WQ_HASH_SZ];
 
@@ -5734,7 +5955,21 @@ static int __init ext4_init_fs(void)
 	if (err)
 		goto out;
 
+#ifdef CONFIG_EXT4_ENCRYPTION
+	hie_register_fs(&ext4_hie);
+#endif
+#ifdef CONFIG_OPLUS_FEATURE_EXT4_DEFRAG
+/* yanwu@TECH.Storage.FS.EXT4, 2020/02/29, support ext4 defrag */
+	err = e4defrag_init_fs();
+	if (err)
+		goto out_defrag;
+#endif
 	return 0;
+#ifdef CONFIG_OPLUS_FEATURE_EXT4_DEFRAG
+/* yanwu@TECH.Storage.FS.EXT4, 2020/02/29, support ext4 defrag */
+out_defrag:
+	e4defrag_exit_fs();
+#endif
 out:
 	unregister_as_ext2();
 	unregister_as_ext3();
@@ -5755,6 +5990,10 @@ out5:
 
 static void __exit ext4_exit_fs(void)
 {
+#ifdef CONFIG_OPLUS_FEATURE_EXT4_DEFRAG
+/* yanwu@TECH.Storage.FS.EXT4, 2020/02/29, support ext4 defrag */
+	e4defrag_exit_fs();
+#endif
 	ext4_destroy_lazyinit_thread();
 	unregister_as_ext2();
 	unregister_as_ext3();

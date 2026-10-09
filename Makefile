@@ -403,6 +403,48 @@ KBUILD_LDFLAGS_MODULE := -T $(srctree)/scripts/module-common.lds
 GCC_PLUGINS_CFLAGS :=
 CLANG_FLAGS :=
 
+#ifdef VENDOR_EDIT
+#Jianchao.Shi@PSW.BSP.CHG.Basic, 2019/05/09, sjc Add for 806 high/low temp aging test
+ifeq ($(OPPO_HIGH_TEMP_VERSION),true)
+KBUILD_CFLAGS += -DCONFIG_HIGH_TEMP_VERSION
+KBUILD_CPPFLAGS += -DCONFIG_HIGH_TEMP_VERSION
+endif
+#endif /* VENDOR_EDIT */
+
+#ifdef  VENDOR_EDIT
+#LiPing-m@PSW.MM.Display.LCD.Machine, 2017/11/03, Add for VENDOR_EDIT macro in kernel
+KBUILD_CFLAGS +=   -DVENDOR_EDIT
+KBUILD_CPPFLAGS += -DVENDOR_EDIT
+CFLAGS_KERNEL +=   -DVENDOR_EDIT
+CFLAGS_MODULE +=   -DVENDOR_EDIT
+#endif /* VENDOR_EDIT */
+
+#ifdef VENDOR_EDIT
+#zhouhengguo@PSW.BSP.Kernel.Stablity, 2019/11/05, add daily build
+ifneq ($(TARGET_BUILD_VARIANT), user)
+KBUILD_CFLAGS   += -DOPPO_TARGET_BUILD_DAILY
+KBUILD_CPPFLAGS += -DOPPO_TARGET_BUILD_DAILY
+CFLAGS_KERNEL   += -DOPPO_TARGET_BUILD_DAILY
+CFLAGS_MODULE   += -DOPPO_TARGET_BUILD_DAILY
+endif
+#endif /*VENDOR_EDIT*/
+
+#ifdef ODM_WT_EDIT
+#Hui.Yuan@ODM_WT.BSP.Kernel.stability, 2020/06/09,modify for aee_kpd_enable control*/
+ifeq ($(OBSOLETE_KEEP_ADB_SECURE),1)
+KBUILD_CFLAGS += -DENABLE_LONG_PWKDUMP
+endif
+#endif
+
+#ifdef VENDOR_EDIT
+#ye.zhang@Sensor.config,2016-09-09, add for CTSI support external storage or not
+$(info @@@@@@@@@@@ OPPO_BUILD_CUSTOMIZE is $(OPPO_BUILD_CUSTOMIZE))
+KBUILD_CFLAGS += -DMOUNT_EXSTORAGE_IF
+KBUILD_CPPFLAGS += -DMOUNT_EXSTORAGE_IF
+CFLAGS_KERNEL += -DMOUNT_EXSTORAGE_IF
+CFLAGS_MODULE += -DMOUNT_EXSTORAGE_IF
+#endif /* VENDOR_EDIT */
+
 # Read KERNELRELEASE from include/config/kernel.release (if it exists)
 KERNELRELEASE = $(shell cat include/config/kernel.release 2> /dev/null)
 KERNELVERSION = $(VERSION)$(if $(PATCHLEVEL),.$(PATCHLEVEL)$(if $(SUBLEVEL),.$(SUBLEVEL)))$(EXTRAVERSION)
@@ -782,6 +824,14 @@ ifdef CONFIG_CC_STACKPROTECTOR
   stackp-check := $(wildcard $(stackp-path))
 endif
 KBUILD_CFLAGS += $(stackp-flag)
+
+#Junbo.Guo@ODM_WT.BSP.Kernel.Boot, 2019/10/22, Add for ODM_WT_EDIT
+$(warning *****CONFIG_ODM_WT_EDIT is defined****)
+KBUILD_CFLAGS +=   -DODM_WT_EDIT
+KBUILD_CPPFLAGS += -DODM_WT_EDIT
+CFLAGS_KERNEL +=   -DODM_WT_EDIT
+CFLAGS_MODULE +=   -DODM_WT_EDIT
+export ODM_WT_EDIT=yes
 
 ifeq ($(cc-name),clang)
 KBUILD_CPPFLAGS += $(call cc-option,-Qunused-arguments,)

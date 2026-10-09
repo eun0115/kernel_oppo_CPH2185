@@ -1,16 +1,15 @@
 /***********************************************************
 ** Copyright (C), 2008-2016, OPPO Mobile Comm Corp., Ltd.
 ** ODM_WT_EDIT
-** File: - nt36525b_yogurt_hlt_hdp_dsi_vdo_lcm.c
-** Description: source file for lcm nt36525b+hlt in kernel stage
+** File: - ili9882n_skyworth_hdp_dsi_vdo_lcm.c
+** Description: source file for lcm ili9882n_skyworth in kernel stage
 **
 ** Version: 1.0
 ** Date : 2019/9/25
-** Author: Hao.Liang@mm.display.lcd,
 **
 ** ------------------------------- Revision History: -------------------------------
 **  	<author>		<data> 	   <version >	       <desc>
-**  lianghao       2019/9/25     1.0     source file for lcm nt36525b+hlt in kernel stage
+**  lianghao       2019/9/25     1.0     source file for lcm ili9882n_skyworth in kernel stage
 **
 ****************************************************************/
 
@@ -34,10 +33,9 @@
 #else
 #include "disp_dts_gpio.h"
 #endif
-//Yize.Zhangyize@ODM_WT.BSP.Touchscreen.funtion,2020/04/01,Adjust TP in resume update firmware.
-#include <linux/update_tpfw_notifier.h>
-#include "disp_cust.h"
-//Hongwu.Wei@ODM_WT.MM.LCD,2020/04/04, add /proc/devinfo/lcd node
+
+//#include <linux/update_tpfw_notifier.h>
+//#include "disp_cust.h"
 #include <soc/oppo/device_info.h>
 static struct LCM_UTIL_FUNCS lcm_util;
 
@@ -99,18 +97,24 @@ static struct LCM_UTIL_FUNCS lcm_util;
 #ifndef FALSE
 #define FALSE 0
 #endif
-
+//extern unsigned int esd_recovery_backlight_level;
+extern int __attribute__((weak)) tp_gesture_enable_flag(void) { return 0; };
+__attribute__((weak)) void lcd_resume_load_ili_fw(void)
+{
+    return;
+}
+extern void core_config_sleep_ctrl(bool out);
 struct LCM_setting_table {
 	unsigned int cmd;
 	unsigned char count;
-	unsigned char para_list[64];
+	unsigned char para_list[256];
 };
 
 static struct LCM_setting_table lcm_suspend_setting[] = {
 	{0x28, 0, {} },
 	{REGFLAG_DELAY, 20, {} },
 	{0x10, 0, {} },
-	{REGFLAG_DELAY, 80, {} }
+	{REGFLAG_DELAY, 120, {} }
 };
 
 #if 1
@@ -178,7 +182,8 @@ static int blmap_table[] = {
 					268, 3433,
 					282, 3705,
 					317, 4400,
-					176, 1555};
+					176, 1555
+};
 #endif
 
 static struct LCM_setting_table init_setting_cmd[] = {
@@ -186,76 +191,69 @@ static struct LCM_setting_table init_setting_cmd[] = {
 };
 
 static struct LCM_setting_table init_setting_vdo[] = {
-	//CABC Setting
-	{0xFF,0x01,{0x23}},
-	{0xFB,0x01,{0x01}},
-	{0x00,0x01,{0x80}},  //12bit
-	{0x07,0x01,{0x00}},
-	{0x08,0x01,{0x01}},
-	{0x09,0x01,{0x00}},
-	//APL_WT
-	{0x10,0x01,{0x0C}},
-	//APL_THD
-	{0x11,0x01,{0x00}},
-	{0x12,0x01,{0xAB}},
-	//APL_COMP
-	{0x15,0x01,{0xF5}},
-	{0x16,0x01,{0x0B}},
-	//GAMMACMP
-	{0x29,0x01,{0x20}},
-	{0x2A,0x01,{0x20}},
-	{0x2B,0x01,{0x20}},
-	//CABC_PWM_UI
-	{0x30,0x01,{0xFF}},
-	{0x31,0x01,{0xFC}},
-	{0x32,0x01,{0xF8}},
-	{0x33,0x01,{0xF4}},
-	{0x34,0x01,{0xF2}},
-	{0x35,0x01,{0xF0}},
-	{0x36,0x01,{0xEF}},
-	{0x37,0x01,{0xED}},
-	{0x38,0x01,{0xEC}},
-	{0x39,0x01,{0xEA}},
-	{0x3A,0x01,{0xE9}},
-	{0x3B,0x01,{0xE8}},
-	{0x3D,0x01,{0xE7}},
-	{0x3F,0x01,{0xE6}},
-	{0x40,0x01,{0xE5}},
-	{0x41,0x01,{0xE3}},
-	//CABC_PWM_MOV
-	{0x58,0x01,{0xFF}},
-	{0x59,0x01,{0xFB}},
-	{0x5A,0x01,{0xEE}},
-	{0x5B,0x01,{0xE8}},
-	{0x5C,0x01,{0xE3}},
-	{0x5D,0x01,{0xDE}},
-	{0x5E,0x01,{0xD6}},
-	{0x5F,0x01,{0xD4}},
-	{0x60,0x01,{0xD2}},
-	{0x61,0x01,{0xD0}},
-	{0x62,0x01,{0xCC}},
-	{0x63,0x01,{0xCC}},
-	{0x64,0x01,{0xCA}},
-	{0x65,0x01,{0xC8}},
-	{0x66,0x01,{0xC4}},
-	{0x67,0x01,{0xC0}},
-	//{0x04,0x01,{0x06}},
-	//{0x05,0x01,{0x36}},
-	//{0x06,0x01,{0x02}},
-	{0x29,0x01,{0x00}},
-	{0x2A,0x01,{0x00}},
-	{0x2B,0x01,{0x00}},
-	{0xFF,0x01,{0x10}},
-	{0xFB,0x01,{0x01}},
-	{0xBA,0x01,{0x02}},
-	{0x68,0x02,{0x04,0x01}},
-	{0x53,0x01,{0x24}},
-	{0x55,0x01,{0x01}},
-	{0x35,0x01,{0x00}},
-	{0x29,0x01,{0x00}},
-	{REGFLAG_DELAY, 10, {} },
-	{0x11,0x01,{0x00}},
-	{REGFLAG_DELAY, 100, {} },
+    {0x11, 0x01, {0x00}},
+    {REGFLAG_DELAY, 120, {}},
+    {0xFF,0x03,{0x98,0x82,0x05}},
+    {0x63,0x01,{0x88}},     // GVDDN = -5.2V  20201014
+    {0x64,0x01,{0x88}},     // GVDDP = 5.2V   20201014
+    //cabc setting parameters start
+    {0xFF, 0x03, {0x98, 0x82, 0x06}},
+    {0x06, 0x01, {0xA4}},          //PWM 15.6kHz
+
+    {0xFF, 0x03, {0x98, 0x82, 0x03}},
+    {0x83, 0x01, {0x20}},          //PWM 12bit
+    {0x84, 0x01, {0x00}},
+
+    {0x86, 0x01, {0x3F}},
+    {0x87, 0x01, {0x3F}},
+    {0xAF, 0x01, {0x18}},
+    {0x8C, 0x01, {0xE3}},
+    {0x8D, 0x01, {0xDD}},
+    {0x8E, 0x01, {0xDD}},
+    {0x8F, 0x01, {0xE6}},
+    {0x90, 0x01, {0xEF}},
+    {0x91, 0x01, {0xE6}},
+    {0x92, 0x01, {0xEE}},
+    {0x93, 0x01, {0xEE}},
+    {0x94, 0x01, {0xEE}},
+    {0x96, 0x01, {0xBD}},
+    {0x97, 0x01, {0xBD}},
+    {0x98, 0x01, {0xC5}},
+    {0x99, 0x01, {0xC5}},
+    {0x9A, 0x01, {0xCD}},
+    {0x9B, 0x01, {0xD5}},
+    {0x9C, 0x01, {0xDD}},
+    {0x9D, 0x01, {0xE6}},
+    {0x9E, 0x01, {0xEE}},
+    {0x9F, 0x01, {0xF6}},
+    //cabc setting parameters end
+    {0xFF,0x03,{0x98,0x82,0x08}},
+    {0xE0,0x1B,{0x00,0x24,0x70,0xA3,0xE3,0x55,0x17,0x41,0x71,0x98,0xA9,0xD6,0x07,0x34,0x5E,0xEA,0x8A,0xBE,0xDE,0x07,0xFF,0x28,0x52,0x86,0xB1,0x03,0xEC}},
+    {0xE1,0x1B,{0x00,0x24,0x70,0xA3,0xE3,0x55,0x17,0x41,0x71,0x98,0xA9,0xD6,0x07,0x34,0x5E,0xEA,0x8A,0xBE,0xDE,0x07,0xFF,0x28,0x52,0x86,0xB1,0x03,0xEC}},
+    {0xFF,0x03,{0x98,0x82,0x0A}},
+    {0x00,0xae,{0x00,0x01,0x04,0x07,0x0C,0x10,0x14,0x18,0x1C,0x20,0x24,0x28,0x2C,0x30,0x34,0x38,0x3C,0x41,0x44,0x48,0x4C,0x50,0x54,0x58,0x60,0x68,0x70,0x80,0x90,0x98,0x9F,\
+    0xA7,0xB0,0xB7,0xBF,0xC8,0xD0,0xD7,0xE0,0xE8,0xF0,0xF8,0xFA,0xFB,0xFE,0xFF,0xCC,0x51,0x66,0xA9,0xF3,0x51,0x91,0xF4,0xBD,0x5C,0xC1,0x00,0x00,0x01,0x04,0x08,0x0C,0x10,\
+    0x14,0x18,0x1C,0x20,0x24,0x28,0x2C,0x30,0x34,0x38,0x3C,0x40,0x44,0x48,0x4C,0x50,0x54,0x58,0x60,0x68,0x70,0x80,0x8F,0x98,0x9F,0xA7,0xB0,0xB7,0xBF,0xC8,0xCF,0xD7,0xE0,\
+    0xE8,0xF0,0xF7,0xF9,0xFB,0xFD,0xFF,0x0C,0x65,0x66,0x54,0xBF,0x41,0x50,0xF7,0x14,0x4F,0xFC,0x03,0x00,0x01,0x04,0x08,0x0C,0x10,0x14,0x18,0x1C,0x1F,0x24,0x28,0x2B,0x2F,\
+    0x33,0x37,0x3B,0x40,0x43,0x47,0x4B,0x4E,0x52,0x56,0x5E,0x66,0x6E,0x7E,0x8E,0x96,0x9E,0xA5,0xAE,0xB5,0xBD,0xC6,0xCE,0xD6,0xDE,0xE7,0xEF,0xF7,0xF9,0xFB,0xFD,0xFF,0x18,\
+    0x11,0x0C,0xAE,0xB3,0xF9,0xA6,0xC4,0xBD,0x39,0x98,0x03}},
+    {0x80,0x01,{0x01}},
+
+    {0xFF, 0x03, {0x98, 0x82, 0x00}},
+    {0x51, 0x02, {0x00, 0x00}},
+    {0x68, 0x02, {0x04, 0x00}},
+    {0x55, 0x01, {0x02}},
+    {0x53, 0x01, {0x24}},
+    {0x35, 0x01, {0x00}},
+    {0x29, 0x01, {0x00}},
+    {REGFLAG_DELAY, 20, {}},
+};
+
+
+static struct LCM_setting_table bl_level[] = {
+	/* { 0xFF, 0x03, {0x98, 0x81, 0x00} }, */
+	{0x51, 2, {0x00,0xFF}},
+	{REGFLAG_END_OF_TABLE, 0x00, {}}
 };
 
 static void push_table(void *cmdq, struct LCM_setting_table *table,
@@ -288,6 +286,7 @@ static void push_table(void *cmdq, struct LCM_setting_table *table,
 		}
 	}
 }
+
 /*
 static void push_table_cust(void *cmdq, struct LCM_setting_table_V3*table,
 	unsigned int count, bool hs)
@@ -295,6 +294,7 @@ static void push_table_cust(void *cmdq, struct LCM_setting_table_V3*table,
 	set_lcm(table, count, hs);
 }
 */
+
 static void lcm_set_util_funcs(const struct LCM_UTIL_FUNCS *util)
 {
 	memcpy(&lcm_util, util, sizeof(struct LCM_UTIL_FUNCS));
@@ -335,21 +335,25 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 	/* video mode timing */
 	params->dsi.PS = LCM_PACKED_PS_24BIT_RGB888;
 	params->dsi.vertical_sync_active = 2;
-	params->dsi.vertical_backporch = 254;
-	params->dsi.vertical_frontporch = 10;
+	params->dsi.vertical_backporch = 16;
+	params->dsi.vertical_frontporch = 240;
 	//params->dsi.vertical_frontporch_for_low_power = 540;
 	params->dsi.vertical_active_line = FRAME_HEIGHT;
-	params->dsi.horizontal_sync_active = 4;
-	params->dsi.horizontal_backporch = 44;
-	params->dsi.horizontal_frontporch = 8;
+	params->dsi.horizontal_sync_active = 8;
+	params->dsi.horizontal_backporch = 34;
+	params->dsi.horizontal_frontporch = 20;
 	params->dsi.horizontal_active_pixel = FRAME_WIDTH;
 	params->dsi.ssc_disable = 1;
 	//params->dsi.HS_TRAIL = 6;
 	//params->dsi.HS_PRPR = 5;
 	params->dsi.CLK_HS_PRPR = 7;
 	// jump pll_clk
-		params->dsi.horizontal_sync_active_ext = 4;
-		params->dsi.horizontal_backporch_ext = 30;
+	//params->dsi.horizontal_sync_active_ext = 8;
+	//params->dsi.horizontal_backporch_ext = 20;
+	params->dsi.dynamic_switch_mipi = 1;
+	params->dsi.horizontal_sync_active_dyn = 8;
+	params->dsi.horizontal_backporch_dyn = 20;
+	params->dsi.data_rate_dyn = 720;
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #if (LCM_DSI_CMD_MODE)
@@ -357,8 +361,8 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 #else
 	params->dsi.data_rate= 733;	/* this value must be in MTK suggested table */
 #endif
-	params->dsi.PLL_CK_CMD = 360;
-	params->dsi.PLL_CK_VDO = 360;
+	//params->dsi.PLL_CK_CMD = 360;
+	//params->dsi.PLL_CK_VDO = 360;
 #else
 	params->dsi.pll_div1 = 0;
 	params->dsi.pll_div2 = 0;
@@ -367,9 +371,11 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 	//params->dsi.clk_lp_per_line_enable = 0;
 	params->dsi.esd_check_enable = 1;
 	params->dsi.customization_esd_check_enable = 1;
-	params->dsi.lcm_esd_check_table[0].cmd = 0x0A;
-	params->dsi.lcm_esd_check_table[0].count = 1;
-	params->dsi.lcm_esd_check_table[0].para_list[0] = 0x9C;
+	params->dsi.lcm_esd_check_table[0].cmd = 0x09;
+	params->dsi.lcm_esd_check_table[0].count = 3;
+	params->dsi.lcm_esd_check_table[0].para_list[0] = 0x80;
+	params->dsi.lcm_esd_check_table[0].para_list[1] = 0x03;
+	params->dsi.lcm_esd_check_table[0].para_list[2] = 0x06;
 
 #ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
 	params->round_corner_en = 1;
@@ -382,15 +388,14 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 	params->blmap = blmap_table;
 	params->blmap_size = sizeof(blmap_table)/sizeof(blmap_table[0]);
 	params->brightness_max = 2047;
-	params->brightness_min = 4;
+	params->brightness_min = 3;
 
-    //Hongwu.Wei@ODM_WT.MM.LCD,2020/04/04, add /proc/devinfo/lcd node
-    register_device_proc("lcd", "nt36525b", "hlt_novtek_low");
+	register_device_proc("lcd", "ili9882n", "skyworth_ilitek");
+
 }
 
 static void lcm_init_power(void)
 {
-	/*pr_debug("lcm_init_power\n");*/
 	pr_debug("lcm_init_power\n");
 	MDELAY(1);
 	SET_LCM_VSP_PIN(1);
@@ -398,18 +403,16 @@ static void lcm_init_power(void)
 	SET_LCM_VSN_PIN(1);
 }
 
-//extern int gesture_flag;
 static void lcm_suspend_power(void)
 {
-
 	pr_debug("lcm_suspend_power\n");
+	if(!tp_gesture_enable_flag()){
+		printk("lcm_tp_suspend_power_on\n");
+		SET_LCM_VSN_PIN(0);
+		MDELAY(2);
+		SET_LCM_VSP_PIN(0);
+	}
 
-//	if (!gesture_flag){
-//		printk("lcm_tp_suspend_power_on\n");
-//		SET_LCM_VSN_PIN(0);
-//		MDELAY(2);
-//		SET_LCM_VSP_PIN(0);
-//	}
 }
 
 static void lcm_resume_power(void)
@@ -421,37 +424,29 @@ static void lcm_resume_power(void)
 	//base voltage = 4.0 each step = 100mV; 4.0+20 * 0.1 = 6.0v;
 	if ( display_bias_setting(0x14) )
 		pr_err("fatal error: lcd gate ic setting failed \n");
-	MDELAY(10);
-	SET_RESET_PIN(0);
-	MDELAY(10);
-	SET_RESET_PIN(1);
-	MDELAY(10);
+	MDELAY(5);
 }
 
-#ifdef ODM_WT_EDIT
-extern void lcd_queue_load_tp_fw(void);
-#endif
+extern void __attribute((weak)) lcd_queue_load_tp_fw(void) { return; };
+
 static void lcm_init(void)
 {
 	pr_debug("lcm_init\n");
-	//SET_RESET_PIN(1);
-	//MDELAY(10);
 	SET_RESET_PIN(0);
-	MDELAY(10);
+	MDELAY(2);
 	SET_RESET_PIN(1);
-#ifdef ODM_WT_EDIT
-//Yize.Zhangyize@ODM_WT.BSP.Touchscreen.funtion,2020/04/01,Adjust TP in resume update firmware.
-	MDELAY(11);
-	//update_tpfw_notifier_call_chain(1,NULL);
+
+	MDELAY(5);
+	//lcd_resume_load_ili_fw();
 	lcd_queue_load_tp_fw();
-	MDELAY(1);
-#endif
+	MDELAY(10);
+
 	if (lcm_dsi_mode == CMD_MODE) {
 		push_table(NULL, init_setting_cmd, sizeof(init_setting_cmd) / sizeof(struct LCM_setting_table), 1);
-		pr_debug("nt36525b_hlt_lcm_mode = cmd mode :%d----\n", lcm_dsi_mode);
+		pr_debug("ili9882n_skyworth_lcm_mode = cmd mode :%d----\n", lcm_dsi_mode);
 	} else {
 		push_table(NULL, init_setting_vdo, sizeof(init_setting_vdo) / sizeof(struct LCM_setting_table), 1);
-		pr_debug("nt36525b_hlt_lcm_mode = vdo mode :%d\n", lcm_dsi_mode);
+		pr_debug("ili9882n_skyworth_lcm_mode = vdo mode :%d\n", lcm_dsi_mode);
 	}
 }
 
@@ -469,70 +464,42 @@ static void lcm_resume(void)
 	pr_debug("lcm_resume\n");
 	lcm_init();
 }
-#if 0
-static struct LCM_setting_table lcm_cabc_enter_setting[] = {
-	{0x53,1,{0x2c}},
-	{0x55,1,{0x01}},
-	{REGFLAG_END_OF_TABLE, 0x00, {}}
-};
+unsigned int end_level=0;
+static void lcm_setbacklight_cmdq(void *handle, unsigned int level)
+{
+	if(end_level ==0){
+		pr_err("[HW ili9882n_skyworth]end_level =0\n");
+		MDELAY(15);
+	}
+	bl_level[0].para_list[0] = 0x000F&(level >> 8);
+	bl_level[0].para_list[1] = 0x00FF&(level);
+	
+	pr_err("[HW check backlight ili9882n_skyworth]level=%d,para_list[0]=%x,para_list[1]=%x\n",level,bl_level[0].para_list[0],bl_level[0].para_list[1]);
 
-static struct LCM_setting_table lcm_cabc_exit_setting[] = {
-	{0x53,1,{0x2c}},
-	{0x55,1,{0x00}},
-	{REGFLAG_END_OF_TABLE, 0x00, {}}
-};
-#endif
+	push_table(handle, bl_level, sizeof(bl_level) / sizeof(struct LCM_setting_table), 1);
+	end_level = level;
+}
 
 static struct LCM_setting_table set_cabc_off[] = {
-	{ 0x53, 0x01, {0x2C} },
-	{REGFLAG_DELAY, 20, {} },
-	{ 0x55, 0x01, {0x00} },
-	{REGFLAG_DELAY, 20, {} },
-	 //{ 0x53, 0x01, {0x24} },
-	 { REGFLAG_END_OF_TABLE, 0x00, {} }
+	{0xFF, 0x03, {0x98, 0x82, 0x00}},
+	{0x55, 0x01, {0x00} }
 };
-
 static struct LCM_setting_table set_cabc_ui[] = {
-	{ 0x53, 0x01, {0x2C} },
-	{REGFLAG_DELAY, 20, {} },
-	{ 0x55, 0x01, {0x01} },
-	{REGFLAG_DELAY, 20, {} },
-	 //{ 0x53, 0x01, {0x24} },
-	 { REGFLAG_END_OF_TABLE, 0x00, {} }
+	{0xFF, 0x03, {0x98, 0x82, 0x00}},
+	{0x55, 0x01, {0x02} }
 };
-
 static struct LCM_setting_table set_cabc_still[] = {
-	{ 0x53, 0x01, {0x2C} },
-	{REGFLAG_DELAY, 20, {} },
-	{ 0x55, 0x01, {0x03} },
-	{REGFLAG_DELAY, 20, {} },
-	 //{ 0x53, 0x01, {0x24} },
-	 { REGFLAG_END_OF_TABLE, 0x00, {} }
-
+	{0xFF, 0x03, {0x98, 0x82, 0x00}},
+	{0x55, 0x01, {0x03} }
 };
-
 static struct LCM_setting_table set_cabc_move[] = {
-	{ 0x53, 0x01, {0x2C} },
-	{REGFLAG_DELAY, 20, {} },
-	{ 0x55, 0x01, {0x03} },
-	{REGFLAG_DELAY, 20, {} },
-	 //{ 0x53, 0x01, {0x24} },
-	 { REGFLAG_END_OF_TABLE, 0x00, {} }
-
-};
-
-//Zhenzhen.wu@ODM_WT.BSP.LCD.funtion,2020/04/01,Adjust LCD suspend timming.
-static struct LCM_setting_table set_cabc_dimming_off[] = {
-	{0xFF,0x01,{0x10}},
-	{0xFB,0x01,{0x01}},
-	{0x55, 0x01, {0x00}},
-	{0x53, 0x01, {0x24}},
-	{REGFLAG_END_OF_TABLE, 0x00, {}}
+	{0xFF, 0x03, {0x98, 0x82, 0x00}},
+	{0x55, 0x01, {0x03} }
 };
 
 static int cabc_status;
  static void lcm_set_cabc_cmdq(void *handle, unsigned int level){
-	pr_debug("[lcm] cabc set level %d\n", level);
+	pr_err("[lcm] cabc set level %d\n", level);
 	if (level==0){
 		push_table(handle, set_cabc_off, sizeof(set_cabc_off) / sizeof(struct LCM_setting_table), 1);
 	}else if (level == 1){
@@ -551,24 +518,6 @@ static int cabc_status;
 	*status = cabc_status;
 }
 
-static struct LCM_setting_table bl_level[] = {
-	{0x51, 2, {0x0F,0xFF}},
-	{REGFLAG_END_OF_TABLE, 0x00, {}}
-};
-
-
-static void lcm_setbacklight_cmdq(void *handle, unsigned int level)
-{
-	//Zhenzhen.wu@ODM_WT.BSP.LCD.funtion,2020/04/01,Adjust LCD suspend timming.
-	if(0==level){
-		push_table(handle, set_cabc_dimming_off, sizeof(set_cabc_dimming_off) / sizeof(struct LCM_setting_table), 1);
-	}
-	bl_level[0].para_list[0] = 0x000F&(level >> 8);
-	bl_level[0].para_list[1] = 0x00FF&(level);
-	pr_err("[ HW check backlight nt36525b+hlt]level=%d para_list[0]=%x,para_list[1]=%x\n",level,bl_level[0].para_list[0],bl_level[0].para_list[1]);
-	push_table(handle, bl_level, sizeof(bl_level) / sizeof(struct LCM_setting_table), 1);
-}
-
 static unsigned int lcm_esd_recover(void)
 {
 #ifndef BUILD_LK
@@ -579,19 +528,15 @@ static unsigned int lcm_esd_recover(void)
 	MDELAY(10);
 	SET_RESET_PIN(1);
 	MDELAY(10);
-#ifdef ODM_WT_EDIT
-//Yize.Zhangyize@ODM_WT.BSP.Touchscreen.funtion,2020/04/01,Adjust TP in resume update firmware.
-	MDELAY(10);
 	lcd_queue_load_tp_fw();
 	MDELAY(1);
-#endif
 
 	if (lcm_dsi_mode == CMD_MODE) {
 		push_table(NULL, init_setting_cmd, sizeof(init_setting_cmd) / sizeof(struct LCM_setting_table), 1);
-		pr_debug("nt36525b_hlt_lcm_mode = cmd mode esd recovery :%d----\n", lcm_dsi_mode);
+		pr_debug("ili9882n_skyworth_lcm_mode = cmd mode esd recovery :%d----\n", lcm_dsi_mode);
 	} else {
 		push_table(NULL, init_setting_vdo, sizeof(init_setting_vdo) / sizeof(struct LCM_setting_table), 1);
-		pr_debug("nt36525b_hlt_lcm_mode = vdo mode esd recovery :%d----\n", lcm_dsi_mode);
+		pr_debug("ili9882n_skyworth_lcm_mode = vdo mode esd recovery :%d----\n", lcm_dsi_mode);
 	}
 	pr_debug("lcm_esd_recovery\n");
 	push_table(NULL, bl_level, sizeof(bl_level) / sizeof(struct LCM_setting_table), 1);
@@ -600,9 +545,6 @@ static unsigned int lcm_esd_recover(void)
 	return FALSE;
 #endif
 }
-
-#ifdef ODM_WT_EDIT
-//Hao.Liang@ODM_WT.MM.Display.LCD, 2020/7/15, add LCD dimming control
 
 static struct LCM_setting_table lcm_dimming_enable_setting[] = {
 	{0x53, 0x01, {0x2c} },
@@ -623,10 +565,62 @@ static void lcm_set_dimming_mode_cmdq(void *handle, unsigned int level)
 	else
 	    push_table(handle, lcm_dimming_disable_setting, sizeof(lcm_dimming_disable_setting) / sizeof(struct LCM_setting_table), 1);
 }
-#endif
 
-struct LCM_DRIVER nt36525b_hlt_two_yogurt_hdp_dsi_vdo_lcm_drv = {
-	.name = "nt36525b_hlt_two_yogurt_hdp_dsi_vdo_lcm",
+static struct LCM_setting_table set_gamma_enter[] = {
+	{0xFF, 0x03, {0x98, 0x82, 0x08}},
+	{0xE0, 0x1B, {0x54, 0xFD, 0x11, 0x2B, 0x51, 0x55, 0x73, 0x8F, 0xB2, 0xCE, 0xA9, 0xFC, \
+				0x21, 0x43, 0x65, 0xAA, 0x89, 0xB6, 0xD4, 0xFA, 0xFF, 0x1C, 0x48, 0x7F, 0xAC, 0x03, 0xD8}},
+	{0xE1, 0x1B, {0x54, 0xE2, 0x11, 0x2B, 0x51, 0x55, 0x73, 0x8F, 0xB2, 0xCE, 0xA9, 0xFC, 0x21, \
+				0x43, 0x65, 0xAA, 0x89, 0xB6, 0xD4, 0xFA, 0xFF, 0x1C, 0x48, 0x7F, 0xAC, 0x03, 0xD8}},
+	{0xFF, 0x03, {0x98, 0x82, 0x00}},
+};
+
+static struct LCM_setting_table set_gamma_exit[] = {
+	{0xFF, 0x03, {0x98, 0x82, 0x08}},
+	{0xE0, 0x1B, {0x00, 0x24, 0x70, 0xA3, 0xE3, 0x55, 0x17, 0x41, 0x71, 0x98, 0xA9, 0xD6, \
+				0x07, 0x34, 0x5E, 0xEA, 0x8A, 0xBE, 0xDE, 0x07, 0xFF, 0x28, 0x52, 0x86, 0xB1, 0x03, 0xEC}},
+	{0xE1, 0x1B, {0x00, 0x24, 0x70, 0xA3, 0xE3, 0x55, 0x17, 0x41, 0x71, 0x98, 0xA9, 0xD6, \
+				0x07, 0x34, 0x5E, 0xEA, 0x8A, 0xBE, 0xDE, 0x07, 0xFF, 0x28, 0x52, 0x86, 0xB1, 0x03, 0xEC}},
+	{0xFF, 0x03, {0x98, 0x82, 0x0A}},
+	{0x00, 0xae, {0x00, 0x01, 0x04, 0x07, 0x0C, 0x10, 0x14, 0x18, 0x1C, 0x20, 0x24, 0x28, \
+				0x2C, 0x30, 0x34, 0x38, 0x3C, 0x41, 0x44, 0x48, 0x4C, 0x50, 0x54, 0x58, 0x60, 0x68, 0x70, 0x80, 0x90, 0x98, 0x9F, \
+				0xA7, 0xB0, 0xB7, 0xBF, 0xC8, 0xD0, 0xD7, 0xE0, 0xE8, 0xF0, 0xF8, 0xFA, 0xFB, 0xFE, 0xFF, 0xCC, 0x51, 0x66, 0xA9, \
+				0xF3, 0x51, 0x91, 0xF4, 0xBD, 0x5C, 0xC1, 0x00, 0x00, 0x01, 0x04, 0x08, 0x0C, 0x10, 0x14, 0x18, 0x1C, 0x20, 0x24, \
+				0x28, 0x2C, 0x30, 0x34, 0x38, 0x3C, 0x40, 0x44, 0x48, 0x4C, 0x50, 0x54, 0x58, 0x60, 0x68, 0x70, 0x80, 0x8F, 0x98, \
+				0x9F, 0xA7, 0xB0, 0xB7, 0xBF, 0xC8, 0xCF, 0xD7, 0xE0, 0xE8, 0xF0, 0xF7, 0xF9, 0xFB, 0xFD, 0xFF, 0x0C, 0x65, 0x66, \
+				0x54, 0xBF, 0x41, 0x50, 0xF7, 0x14, 0x4F, 0xFC, 0x03, 0x00, 0x01, 0x04, 0x08, 0x0C, 0x10, 0x14, 0x18, 0x1C, 0x1F, \
+				0x24, 0x28, 0x2B, 0x2F, 0x33, 0x37, 0x3B, 0x40, 0x43, 0x47, 0x4B, 0x4E, 0x52, 0x56, 0x5E, 0x66, 0x6E, 0x7E, 0x8E, \
+				0x96, 0x9E, 0xA5, 0xAE, 0xB5, 0xBD, 0xC6, 0xCE, 0xD6, 0xDE, 0xE7, 0xEF, 0xF7, 0xF9, 0xFB, 0xFD, 0xFF, 0x18, 0x11, \
+				0x0C, 0xAE, 0xB3, 0xF9, 0xA6, 0xC4, 0xBD, 0x39, 0x98, 0x03}},
+	{0x80, 0x01, {0x01}},
+	{0xFF, 0x03, {0x98, 0x82, 0x00}},
+};
+
+static void lcm_set_gamma_mode_cmdq(void *handle, unsigned int level)
+{
+	pr_err("%s [lcd] gamma_mode is %d \n", __func__, level);
+
+	if (1==level)
+		push_table(handle, set_gamma_enter, sizeof(set_gamma_enter) / sizeof(struct LCM_setting_table), 1);
+	else
+		push_table(handle, set_gamma_exit, sizeof(set_gamma_exit) / sizeof(struct LCM_setting_table), 1);
+
+	#if 0
+	int backlight_level= 0;
+	backlight_level = current_level*1.4;
+
+	bl_level[0].para_list[0] = 0x000F&(backlight_level >> 8);
+	bl_level[0].para_list[1] = 0x00FF&(backlight_level);
+
+	pr_err("[HW check backlight ili9882n_skyworth]current_level= %d, backlight_level=%d,para_list[0]=%x,para_list[1]=%x\n",
+		current_level,backlight_level,bl_level[0].para_list[0],bl_level[0].para_list[1]);
+
+	push_table(handle, bl_level, sizeof(bl_level) / sizeof(struct LCM_setting_table), 1);
+	#endif
+}
+
+struct LCM_DRIVER ilt9882n_skyworth_yogurt_hdp_dsi_vdo_lcm_drv = {
+	.name = "ilt9882n_skyworth_yogurt_hdp_dsi_vdo_lcm",
 	.set_util_funcs = lcm_set_util_funcs,
 	.get_params = lcm_get_params,
 	.init = lcm_init,
@@ -637,10 +631,9 @@ struct LCM_DRIVER nt36525b_hlt_two_yogurt_hdp_dsi_vdo_lcm_drv = {
 	.suspend_power = lcm_suspend_power,
 	.esd_recover = lcm_esd_recover,
 	.set_backlight_cmdq = lcm_setbacklight_cmdq,
-	//Hao.Liang@ODM_WT.MM.Display.LCD, 2020/7/15, add LCD dimming control
 	.set_dimming_mode_cmdq = lcm_set_dimming_mode_cmdq,
+	.set_gamma_mode_cmdq = lcm_set_gamma_mode_cmdq,
 	.set_cabc_mode_cmdq = lcm_set_cabc_cmdq,
-	.get_cabc_status=lcm_get_cabc_status,
-
+	.get_cabc_status = lcm_get_cabc_status,
 };
 

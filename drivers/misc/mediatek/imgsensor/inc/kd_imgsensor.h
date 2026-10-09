@@ -179,6 +179,8 @@
 #define YOGURT_HLT_FRONT_GC5035_SENSOR_ID                0x5035
 #define YOGURT_SHENGTAI_FRONT_GC5035_SENSOR_ID           0x5036
 #define YOGURT_SUNNY_FRONT_GC5035_SENSOR_ID              0x5037
+#define YOGURT_LCE_FRONT_HI556_SENSOR_ID                 0x0556
+#define YOGURT_SHENGTAI_FRONT_OV8856_SENSOR_ID           0x885A
 #define YOGURT_QTECH_FRONT_S5K4H7_SENSOR_ID              0x487B
 #define YOGURT_HLT_DEPTH_GC02M1B_MIPI_SENSOR_ID          0x02E0
 #define YOGURT_LHYX_DEPTH_GC02M1B_MIPI_SENSOR_ID         0x02E1
@@ -186,12 +188,14 @@
 #define YOGURT_SHENGTAI_MICRO_GC02K0_SENSOR_ID           0x2385
 #define YOGURT_LHYX_MICRO_GC02K0_SENSOR_ID               0x2386
 #define YOGURT_CXT_MICRO_GC02K0_SENSOR_ID                0x2387
-
+#define YOGURT_CXT_MICRO_GC02M1_SENSOR_ID                0x02EA
 #define SENSOR_DRVNAME_YOGURT_QTECH_MAIN_OV13B10         "yogurt_qtech_main_ov13b10"
 #define SENSOR_DRVNAME_YOGURT_TRULY_MAIN_S5K3L6          "yogurt_truly_main_s5k3l6"
 #define SENSOR_DRVNAME_YOGURT_HLT_FRONT_GC5035           "yogurt_hlt_front_gc5035"
 #define SENSOR_DRVNAME_YOGURT_SHENGTAI_FRONT_GC5035      "yogurt_shengtai_front_gc5035"
 #define SENSOR_DRVNAME_YOGURT_SUNNY_FRONT_GC5035         "yogurt_sunny_front_gc5035"
+#define SENSOR_DRVNAME_YOGURT_LCE_FRONT_HI556            "yogurt_lce_front_hi556"
+#define SENSOR_DRVNAME_YOGURT_SHENGTAI_FRONT_OV8856      "yogurt_shengtai_front_ov8856"
 #define SENSOR_DRVNAME_YOGURT_QTECH_FRONT_S5K4H7         "yogurt_qtech_front_s5k4h7"
 #define SENSOR_DRVNAME_YOGURT_HLT_DEPTH_GC02M1B          "yogurt_hlt_depth_gc02m1b"
 #define SENSOR_DRVNAME_YOGURT_LHYX_DEPTH_GC02M1B         "yogurt_lhyx_depth_gc02m1b"
@@ -199,6 +203,7 @@
 #define SENSOR_DRVNAME_YOGURT_SHENGTAI_MICRO_GC02K0      "yogurt_shengtai_micro_gc02k0"
 #define SENSOR_DRVNAME_YOGURT_LHYX_MICRO_GC02K0          "yogurt_lhyx_micro_gc02k0"
 #define SENSOR_DRVNAME_YOGURT_CXT_MICRO_GC02K0           "yogurt_cxt_micro_gc02k0"
+#define SENSOR_DRVNAME_YOGURT_CXT_MICRO_GC02M1           "yogurt_cxt_micro_gc02m1"
 #endif
 /*IMX*/
 #define IMX499_SENSOR_ID                        0x0499

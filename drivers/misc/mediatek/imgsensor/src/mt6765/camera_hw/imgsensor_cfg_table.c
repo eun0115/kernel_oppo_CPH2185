@@ -878,6 +878,19 @@ struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
         },
     },
 #endif
+#if defined(YOGURT_SHENGTAI_FRONT_OV8856)
+    {
+        SENSOR_DRVNAME_YOGURT_SHENGTAI_FRONT_OV8856,
+        {
+            {RST, Vol_Low, 1},
+            {DOVDD, Vol_1800, 1},
+            {AVDD, Vol_2800, 1},
+            {DVDD, Vol_1200, 1},
+            {SensorMCLK, Vol_High, 1},
+            {RST, Vol_High, 5},
+        },
+    },
+#endif
 #if defined(YOGURT_LHYX_DEPTH_GC02M1B)
     {
         SENSOR_DRVNAME_YOGURT_LHYX_DEPTH_GC02M1B,
@@ -938,6 +951,18 @@ struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
             {AVDD, Vol_2800, 5},
             {SensorMCLK, Vol_High, 3},
             {PDN, Vol_High, 5},
+        },
+    },
+#endif
+#if defined(YOGURT_CXT_MICRO_GC02M1)
+    {
+        SENSOR_DRVNAME_YOGURT_CXT_MICRO_GC02M1,
+        {
+            {PDN, Vol_Low, 1},
+            {DOVDD, Vol_1800, 1},
+            {AVDD, Vol_2800, 1},
+            {PDN, Vol_High, 1},
+            {SensorMCLK, Vol_High, 3},
         },
     },
 #endif

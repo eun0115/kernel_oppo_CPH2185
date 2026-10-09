@@ -23,10 +23,13 @@ struct stCAM_CAL_LIST_STRUCT g_camCalList[] = {
 	{YOGURT_HLT_FRONT_GC5035_SENSOR_ID, 0xA8, Common_read_region},
 	{YOGURT_SHENGTAI_FRONT_GC5035_SENSOR_ID, 0xA8, Common_read_region},
 	{YOGURT_SUNNY_FRONT_GC5035_SENSOR_ID, 0xA8, Common_read_region},
+	{YOGURT_LCE_FRONT_HI556_SENSOR_ID, 0xA8, Common_read_region},
+	{YOGURT_SHENGTAI_FRONT_OV8856_SENSOR_ID, 0xA0, Common_read_region},
 	{YOGURT_HLT_DEPTH_GC02M1B_MIPI_SENSOR_ID, 0xA2, Common_read_region},
 	{YOGURT_SHENGTAI_MICRO_GC02K0_SENSOR_ID, 0xA4, Common_read_region},
 	{YOGURT_LHYX_MICRO_GC02K0_SENSOR_ID, 0xA4, Common_read_region},
 	{YOGURT_CXT_MICRO_GC02K0_SENSOR_ID, 0xA4, Common_read_region},
+	{YOGURT_CXT_MICRO_GC02M1_SENSOR_ID, 0xA4, Common_read_region},
 #else
 
 	{PASCALD_TRULY_MAIN_OV13B10_SENSOR_ID, 0xA0, Common_read_region},

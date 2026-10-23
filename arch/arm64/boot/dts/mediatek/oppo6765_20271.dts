@@ -1047,8 +1047,8 @@ oppo_fast_charger: oppo_fast_charger {
 	fpc,reset-gpio  = <&pio 7 0x00>;
 	fpc,vdd-en = <&pio 18 0x00>;
 	//fpc,gpio_cs = <&pio 157 0x00>;
-	pinctrl-names = "default"/*, "fpc_cs_func"/*;
-	pinctrl-0 = <&fpc_reset_default>,<&fpc_irq_default>/*,<&fpc_pwr_default>*/;
+	pinctrl-names = "default"/*, "fpc_cs_func"*;
+	pinctrl-0 = <&fpc_reset_default>,<&fpc_irq_default>*,<&fpc_pwr_default>*/;
 	//pinctrl-1 = <&gpio_fpc_cs_func>;
 	status = "okay";
 };

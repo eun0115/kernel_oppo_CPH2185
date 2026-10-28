@@ -88,6 +88,11 @@ jobs:
         git clone -b ${{ github.event.inputs.KERNEL_BRANCH }} ${{ github.event.inputs.KERNEL_REPO }} linux --depth=1 &> /dev/null
         git clone -b Old https://github.com/NCLnclNCL/AnyKernel3 AnyKernel3 --depth=1 &> /dev/null
 
+    - name: Add bakasu
+      run: | 
+        cd $GITHUB_WORKSPACE/project/linux
+        curl -LSs "https://raw.githubusercontent.com/leonardrua/BakaSU/main/kernel/setup.sh" | bash -s main
+
     - name: Building Kernel
       run: |
         cd $GITHUB_WORKSPACE/project/linux

@@ -39,7 +39,8 @@
 #define FW_BIN_TYPE_OFFSET		(0x1A00D)
 
 struct timeval start, end;
-const struct firmware *fw_entry = NULL;
+/* Keep the selected firmware private; the MTK WLAN driver also exports fw_entry. */
+static const struct firmware *nvt_fw_entry = NULL;
 const struct firmware *fw_entry_normal = NULL;
 const struct firmware *fw_entry_mp = NULL;
 uint8_t request_and_download_normal_complete = false;
@@ -276,7 +277,7 @@ static void update_firmware_release(void)
 		    if (!IS_ERR_OR_NULL(request_fw_headfile)) {
 			    kfree(request_fw_headfile);
 			    request_fw_headfile = NULL;
-			    fw_entry = NULL;
+			    nvt_fw_entry = NULL;
 		    }
 
 		    if (!IS_ERR_OR_NULL(fw_entry_normal)) {
@@ -289,7 +290,7 @@ static void update_firmware_release(void)
 		    if (!IS_ERR_OR_NULL(request_fw_headfile)) {
 			    kfree(request_fw_headfile);
 			    request_fw_headfile = NULL;
-			    fw_entry = NULL;
+			    nvt_fw_entry = NULL;
 		    }
 
 		    if (!IS_ERR_OR_NULL(fw_entry_normal)) {
@@ -392,47 +393,47 @@ static int32_t update_firmware_request(char *filename)
 
 		/* choice backup firmware data */
 		if (!strcmp(filename, fw->firmware_mp_name)) {
-			fw_entry = fw_entry_mp;
+			nvt_fw_entry = fw_entry_mp;
 			if (request_and_download_mp_complete) {
 				NVT_LOG("use backup mp fw\n");
 			}
 		} else if (!strcmp(filename, fw->firmware_sign_name)) {
-			fw_entry = fw_entry_normal;
+			nvt_fw_entry = fw_entry_normal;
 			if (request_and_download_sign_complete) {
 				NVT_LOG("use backup normal sign fw\n");
 			}
 		}
 		else {
-			fw_entry = fw_entry_normal;
+			nvt_fw_entry = fw_entry_normal;
 			if (request_and_download_normal_complete) {
 				NVT_LOG("use backup normal fw\n");
 			}
 		}
 #endif
-		if(fw_entry == NULL ){
+		if(nvt_fw_entry == NULL ){
 			NVT_ERR("filename is %s when fw_entry is null",filename);
 			goto invalid;
 		}
 		// check bin file size (116kb)
-		if (fw_entry->size != FW_BIN_SIZE) {
-			NVT_ERR("bin file size not match. (%zu)\n", fw_entry->size);
+		if (nvt_fw_entry->size != FW_BIN_SIZE) {
+			NVT_ERR("bin file size not match. (%zu)\n", nvt_fw_entry->size);
 			ret = -1;
 			goto invalid;
 		}
 
 		// check if FW version add FW version bar equals 0xFF
-		if (*(fw_entry->data + FW_BIN_VER_OFFSET) + *(fw_entry->data + FW_BIN_VER_BAR_OFFSET) != 0xFF) {
+		if (*(nvt_fw_entry->data + FW_BIN_VER_OFFSET) + *(nvt_fw_entry->data + FW_BIN_VER_BAR_OFFSET) != 0xFF) {
 			NVT_ERR("bin file FW_VER + FW_VER_BAR should be 0xFF!\n");
-			NVT_ERR("FW_VER=0x%02X, FW_VER_BAR=0x%02X\n", *(fw_entry->data+FW_BIN_VER_OFFSET), *(fw_entry->data+FW_BIN_VER_BAR_OFFSET));
+			NVT_ERR("FW_VER=0x%02X, FW_VER_BAR=0x%02X\n", *(nvt_fw_entry->data+FW_BIN_VER_OFFSET), *(nvt_fw_entry->data+FW_BIN_VER_BAR_OFFSET));
 			ret = -1;
 			goto invalid;
 		}
 
-        NVT_ERR("FW_VER=0x%02X, FW_VER_BAR=0x%02X\n", *(fw_entry->data+FW_BIN_VER_OFFSET), *(fw_entry->data+FW_BIN_VER_BAR_OFFSET));
-		NVT_LOG("FW type is 0x%02X\n", *(fw_entry->data + FW_BIN_TYPE_OFFSET));
+        NVT_ERR("FW_VER=0x%02X, FW_VER_BAR=0x%02X\n", *(nvt_fw_entry->data+FW_BIN_VER_OFFSET), *(nvt_fw_entry->data+FW_BIN_VER_BAR_OFFSET));
+		NVT_LOG("FW type is 0x%02X\n", *(nvt_fw_entry->data + FW_BIN_TYPE_OFFSET));
 
 		/* BIN Header Parser */
-		ret = nvt_bin_header_parser(fw_entry->data, fw_entry->size);
+		ret = nvt_bin_header_parser(nvt_fw_entry->data, nvt_fw_entry->size);
 		if (ret) {
 			NVT_ERR("bin header parser failed\n");
 			goto invalid;
@@ -702,7 +703,7 @@ static int32_t nvt_download_firmware_hw_crc(void)
 		nvt_bootloader_reset();
 
 		/* Start to write firmware process */
-		ret = nvt_write_firmware(fw_entry->data, fw_entry->size);
+		ret = nvt_write_firmware(nvt_fw_entry->data, nvt_fw_entry->size);
 		if (ret) {
 			NVT_ERR("Write_Firmware failed. (%d)\n", ret);
 			goto fail;
@@ -776,7 +777,7 @@ static int32_t nvt_download_firmware(void)
 		nvt_write_addr(ts->mmap->EVENT_BUF_ADDR | EVENT_MAP_RESET_COMPLETE, 0x00);
 
 		/* Start to write firmware process */
-		ret = nvt_write_firmware(fw_entry->data, fw_entry->size);
+		ret = nvt_write_firmware(nvt_fw_entry->data, nvt_fw_entry->size);
 		if (ret) {
 			NVT_ERR("Write_Firmware failed. (%d)\n", ret);
 			goto fail;
@@ -899,9 +900,13 @@ void Boot_Update_Firmware(struct work_struct *work)
 	mutex_lock(&ts->lock);
 #ifdef ODM_WT_EDIT
 //Bin.Su@ODM_WT.BSP.TP.FUNCTION.2018/12/04,Add skyw novatek TP IC
+	NVT_LOG("boot firmware update start\n");
 	nvt_update_firmware(fw->firmware_name);
+	/* Probe disables IRQ while the no-flash image is downloaded. */
+	ts->is_suspended = 0;
+	nvt_irq_enable(1);
+	NVT_LOG("boot firmware update end; touch IRQ enabled\n");
 #endif
 	mutex_unlock(&ts->lock);
 }
 #endif /* BOOT_UPDATE_FIRMWARE */
-

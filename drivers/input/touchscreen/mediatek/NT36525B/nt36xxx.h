@@ -62,7 +62,7 @@
 //---INT trigger mode---
 //#define IRQ_TYPE_EDGE_RISING 1
 //#define IRQ_TYPE_EDGE_FALLING 2
-#define INT_TRIGGER_TYPE IRQ_TYPE_EDGE_RISING
+#define INT_TRIGGER_TYPE IRQ_TYPE_EDGE_FALLING
 
 #ifdef ODM_WT_EDIT
 //Tongxing.Liu@ODM_WT.BSP.TP.FUNCTION.2019/10/07, add tp_gesture flag.
@@ -80,7 +80,7 @@ extern int tp_gesture;
 #define NVT_ERR(fmt, args...)    pr_err("[%s] %s %d: " fmt, NVT_SPI_NAME, __func__, __LINE__, ##args)
 
 //---Input device info.---
-#define NVT_TS_NAME "NVTCapacitiveTouchScreen"
+#define NVT_TS_NAME "touchpanel"
 
 
 //---Touch info.---
@@ -337,7 +337,7 @@ struct upgrade_fw_info {
 	char module_vendor[20];
 	char *firmware_name;
 	char *firmware_mp_name;
-	const char * fw_file;
+	const uint8_t *fw_file;
 	uint32_t fw_len;
 	char *firmware_sign_name;
 };
@@ -430,6 +430,7 @@ int32_t NVT_CTP_SPI_READ(struct spi_device *client, uint8_t *buf, uint16_t len);
 int32_t NVT_CTP_SPI_WRITE(struct spi_device *client, uint8_t *buf, uint16_t len);
 void nvt_bootloader_reset(void);
 void nvt_eng_reset(void);
+void nvt_irq_enable(bool enable);
 void nvt_sw_reset(void);
 void nvt_sw_reset_idle(void);
 void nvt_boot_ready(void);

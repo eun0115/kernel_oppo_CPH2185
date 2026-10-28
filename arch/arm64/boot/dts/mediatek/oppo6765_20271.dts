@@ -792,6 +792,7 @@ oppo_fast_charger: oppo_fast_charger {
 
 		novatek,reset-gpio = <&pio 174 0x00>;
 		novatek,irq-gpio = <&pio 0 0x2002>;
+		novatek,swrst-n8-addr = <0x03F0FE>;
 
 		touchpanel,max-num-support = <10>;
 		touchpanel,tx-rx-num = <18 32>;

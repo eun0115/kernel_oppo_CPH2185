@@ -52,12 +52,9 @@
 #include <linux/hardware_info.h>
 #endif
 
-#define FTS_UPGRADE_HLT_BOE_FILE "firmware_nvt/hlt_boe_fw.h"
 #define FTS_UPGRADE_HLT_BOE_B3_FILE "firmware_nvt/hlt_boe_b3_fw.h"
 
-const u8 up_fw_kernel_hlt_boe[] = {
-#include FTS_UPGRADE_HLT_BOE_FILE
-};
+#include "firmware_nvt/hlt_stock_fw.h"
 
 const u8 up_fw_kernel_hlt_boe_b3[] = {
 #include FTS_UPGRADE_HLT_BOE_B3_FILE
@@ -65,6 +62,7 @@ const u8 up_fw_kernel_hlt_boe_b3[] = {
 
 extern int get_boot_mode(void);
 extern void devinfo_info_tp_set(char *version, char *manufacture, char *fw_path);
+extern char *saved_command_line;
 //extern int register_tp_proc(char *name, char *version, char *manufacture ,char *fw_path);
 
 #if NVT_TOUCH_ESD_PROTECT
@@ -105,6 +103,12 @@ extern int32_t nvt_mp_proc_init(void);
 struct nvt_ts_data *ts;
 
 int gloal_reset_flag;
+
+#ifdef ODM_WT_EDIT
+/* Shared with the display driver and the Novatek gesture proc interface. */
+int tp_gesture;
+#endif
+
 //static struct workqueue_struct *nvt_wq;
 
 #if BOOT_UPDATE_FIRMWARE
@@ -120,7 +124,16 @@ static void nvt_ts_late_resume(struct early_suspend *h);
 #endif
 
 uint32_t ENG_RST_ADDR  = 0x7FFF80;
-uint32_t SWRST_N8_ADDR = 0; //read from dtsi
+/*
+ * NT36525B software-reset command address.
+ *
+ * The stock CPH2185 DTBO does not contain "novatek,swrst-n8-addr".
+ * An AnyKernel zip only replaces the kernel, not the DTBO, so relying on
+ * that property makes the driver abort before it can register the input
+ * device.  Use the value from the stock OPPO DTS as the default and let
+ * the DT override it when the property is present.
+ */
+uint32_t SWRST_N8_ADDR = 0x03F0FE;
 
 #if TOUCH_KEY_NUM > 0
 const uint16_t touch_key_array[TOUCH_KEY_NUM] = {
@@ -165,7 +178,7 @@ const struct mtk_chip_config spi_ctrdata = {
 #ifdef ODM_WT_EDIT
 //Bin.Su@ODM_WT.BSP.TP.FUNCTION.2018/12/04,Add skyw novatek TP IC
 struct upgrade_fw_info nvt_fw_list[] = {
-    {HLT_BOE, "HLT", BOOT_UPDATE_FIRMWARE_HLT_BOE_NAME,  MP_UPDATE_FIRMWARE_HLT_BOE_NAME, up_fw_kernel_hlt_boe, sizeof(up_fw_kernel_hlt_boe), OPPO_BOOT_UPDATE_FIRMWARE_HLT_BOE_NAME},
+    {HLT_BOE, "HLT", BOOT_UPDATE_FIRMWARE_HLT_BOE_NAME,  MP_UPDATE_FIRMWARE_HLT_BOE_NAME, FW_20271_NF_NT36525B_HLT, sizeof(FW_20271_NF_NT36525B_HLT), OPPO_BOOT_UPDATE_FIRMWARE_HLT_BOE_NAME},
     {HLT_BOE_B3, "HLT", BOOT_UPDATE_FIRMWARE_HLT_BOE_B3_NAME,  MP_UPDATE_FIRMWARE_HLT_BOE_B3_NAME, up_fw_kernel_hlt_boe_b3, sizeof(up_fw_kernel_hlt_boe_b3), OPPO_BOOT_UPDATE_FIRMWARE_HLT_BOE_B3_NAME},
 };
 struct upgrade_fw_info *fw;
@@ -283,6 +296,14 @@ return:
 *******************************************************/
 void nvt_rest_ddi(void)
 {
+	/*
+	 * reset_global_gpio is optional and is not present in the stock
+	 * CPH2185 DTBO.  Do not call gpio_set_value() with an invalid GPIO.
+	 */
+	if (!gpio_is_valid(ts->reset_global_gpio)) {
+		NVT_LOG("%s : reset_global_gpio not available, skip", __func__);
+		return;
+	}
 	gpio_set_value(ts->reset_global_gpio, 0);
 	NVT_LOG("%s : Pull down reset_global_gpio",__func__);
 	mdelay(1);
@@ -1277,13 +1298,20 @@ static int32_t nvt_parse_dt(struct device *dev)
 
 	ret = of_property_read_u32(np, "novatek,swrst-n8-addr", &SWRST_N8_ADDR);
 	if (ret) {
-		NVT_ERR("error reading novatek,swrst-n8-addr. ret=%d\n", ret);
-		return ret;
+		/*
+		 * The stock CPH2185 DTBO has no swrst property.  Do not fail
+		 * probe: the driver can still identify the chip and use the
+		 * default NT36525B reset address.
+		 */
+		SWRST_N8_ADDR = 0x03F0FE;
+		NVT_LOG("novatek,swrst-n8-addr missing, using default 0x%06X\n",
+			SWRST_N8_ADDR);
+		ret = 0;
 	} else {
 		NVT_LOG("SWRST_N8_ADDR=0x%06X\n", SWRST_N8_ADDR);
 	}
 
-	return ret;
+	return 0;
 }
 #else
 static int32_t nvt_parse_dt(struct device *dev)
@@ -2068,12 +2096,12 @@ static int __maybe_unused tid_get_lockdown_info(struct device *dev, char *out_va
 
 static void nvt_resume_workqueue(struct work_struct *work)
 {
+	int reset_state;
+
 #ifdef ODM_WT_EDIT
 //Bin.Su@ODM_WT.BSP.TP.FUNCTION.2019/07/04,add power on function
 //	int pwr;
 #endif
-	ts->is_suspended = 0;
-
 	if (bTouchIsAwake) {
 		NVT_LOG("Touch is already resume\n");
 		return;
@@ -2084,14 +2112,46 @@ static void nvt_resume_workqueue(struct work_struct *work)
 	NVT_LOG("start\n");
 
 	// please make sure display reset(RESX) sequence and mipi dsi cmds sent before this
+	/* The OPPO LCD callback returns before the panel power rails and DSI
+	 * commands are fully settled.  The stock no-flash driver waits in its
+	 * firmware-load workqueue; keep the same ordering here. */
+	msleep(100);
+
 #if NVT_TOUCH_SUPPORT_HW_RST
-	gpio_set_value(ts->reset_gpio, 1);
+	if (gpio_is_valid(ts->reset_gpio)) {
+		gpio_set_value(ts->reset_gpio, 0);
+		msleep(1);
+		nvt_eng_reset();
+		gpio_set_value(ts->reset_gpio, 1);
+		msleep(10);
+	}
 #endif
 #ifdef ODM_WT_EDIT
 //Bin.Su@ODM_WT.BSP.TP.FUNCTION.2018/12/04,Add skyw novatek TP IC
 	nvt_update_firmware(fw->firmware_name);
 #endif
-	nvt_check_fw_reset_state(RESET_STATE_REK);
+
+	/* nvt_update_firmware() already performs the no-flash bootloader reset
+	 * and reads FW info.  Do not reset again after a successful download:
+	 * that can leave the controller in bootloader mode and produce the
+	 * FF/FF/FF SPI frames seen after resume. */
+	reset_state = nvt_check_fw_reset_state(RESET_STATE_REK);
+	if (reset_state) {
+		NVT_ERR("resume reset-state check failed (%d); retrying firmware load\n",
+			reset_state);
+#ifdef ODM_WT_EDIT
+		nvt_update_firmware(fw->firmware_name);
+#else
+		nvt_bootloader_reset();
+#endif
+		reset_state = nvt_check_fw_reset_state(RESET_STATE_REK);
+		if (reset_state)
+			NVT_ERR("resume controller reset failed (%d)\n", reset_state);
+	}
+
+	if (nvt_get_fw_info())
+		NVT_ERR("resume firmware info read failed\n");
+	ts->is_suspended = 0;
 
 #if WAKEUP_GESTURE
 	if (!ts->gesture_enable) {
@@ -2332,12 +2392,27 @@ static int __parse_tag_videolfb(struct device_node *node)
 	struct tag_videolfb *videolfb_tag = NULL;
 	unsigned long size = 0;
 
-	videolfb_tag = (struct tag_videolfb *)of_get_property(node, "atag,videolfb", (int*)&size);
+	if (node)
+		videolfb_tag = (struct tag_videolfb *)of_get_property(node,
+				"atag,videolfb", (int*)&size);
 
 	if (videolfb_tag) {
 		memset((void*)mtkfb_lcm_name, 0, sizeof(mtkfb_lcm_name));
-		strcpy((char*)mtkfb_lcm_name, videolfb_tag->lcmname);
-		mtkfb_lcm_name[strlen(videolfb_tag->lcmname)] = '\0';
+		strlcpy(mtkfb_lcm_name, videolfb_tag->lcmname,
+			sizeof(mtkfb_lcm_name));
+	}
+
+	if (!mtkfb_lcm_name[0] && saved_command_line) {
+		if (strstr(saved_command_line,
+				"nt36525b_hlt_yogurt_hdp_dsi_vdo_lcm"))
+			strlcpy(mtkfb_lcm_name,
+				"nt36525b_hlt_yogurt_hdp_dsi_vdo_lcm",
+				sizeof(mtkfb_lcm_name));
+		else if (strstr(saved_command_line,
+				"nt36525b_hlt_psc_boe_hdp_dsi_vdo_lcm"))
+			strlcpy(mtkfb_lcm_name,
+				"nt36525b_hlt_psc_boe_hdp_dsi_vdo_lcm",
+				sizeof(mtkfb_lcm_name));
 	}
 
 	NVT_LOG("lcd name:%s\n", mtkfb_lcm_name);
@@ -2353,8 +2428,11 @@ static int __parse_tag_videolfb(struct device_node *node)
 			NVT_LOG("this is hlt_boe_b3 nt36525b touchscreen\n");
 			nt_ctpmodule = 1;
 		} else {
-			NVT_LOG("nothing match lcd name\n");
-			return -1;
+			/* A custom boot image may omit atag,videolfb.  This kernel is
+			 * for the HLT NT36525B CPH2185 panel, so keep the SPI driver
+			 * bound and use its exact HLT firmware. */
+			NVT_LOG("lcd name unavailable; defaulting to HLT NT36525B\n");
+			nt_ctpmodule = HLT_BOE;
 		}
 
 	}
@@ -2366,15 +2444,17 @@ static int __parse_tag_videolfb(struct device_node *node)
 
 static int _parse_tag_videolfb(void)
 {
-	int ret;
+	int ret = -ENODEV;
 	struct device_node *chosen_node;
 	chosen_node = of_find_node_by_path("/chosen");
 
 	if(!chosen_node)
 		chosen_node = of_find_node_by_path("/chosen@0");
 
-	if(chosen_node)
+	if (chosen_node)
 		ret = __parse_tag_videolfb(chosen_node);
+	else
+		ret = __parse_tag_videolfb(NULL);
 
 	return ret;
 }
@@ -2972,8 +3052,11 @@ return:
 
 static int32_t nvt_ts_resume(struct device *dev)
 {
-	//update_tpfw_notifier_call_chain(1,NULL);
-	NVT_LOG("%s  do nothing in this function\n",__func__);
+	if (!ts)
+		return -ENODEV;
+
+	NVT_LOG("%s: schedule controller resume\n", __func__);
+	schedule_work(&ts->resume_work_queue);
 	return 0;
 }
 

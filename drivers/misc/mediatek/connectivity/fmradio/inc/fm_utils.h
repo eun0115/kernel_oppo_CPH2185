@@ -233,7 +233,7 @@ extern signed int fm_spin_lock_put(struct fm_lock *thiz);
 
 #define FM_UNLOCK(a)         \
 {                             \
-	if ((a)->unlock) {          \
+	if (a && (a)->unlock) {          \
 		(a)->unlock(a);    \
 	}                       \
 }
@@ -254,7 +254,7 @@ struct fm_timer {
 	signed char name[FM_NAME_MAX + 1];
 	void *priv;		/* platform detail impliment */
 
-	signed int flag;		/* timer active/inactive */
+	unsigned int flag;		/* timer active/inactive */
 	void (*timeout_func)(unsigned long data);	/* timeout function */
 	unsigned long data;	/* timeout function's parameter */
 	signed long timeout_ms;	/* timeout tick */
@@ -266,7 +266,7 @@ struct fm_timer {
 
 	/* timer methods */
 	signed int (*init)(struct fm_timer *thiz, void (*timeout) (unsigned long data),
-		unsigned long data, signed long time, signed int flag);
+	unsigned long data, signed long time, unsigned int flag);
 	signed int (*start)(struct fm_timer *thiz);
 	signed int (*update)(struct fm_timer *thiz);
 	signed int (*stop)(struct fm_timer *thiz);

@@ -14,7 +14,7 @@ on:
       KERNEL_DEFCONFIG:
         description: 'KERNEL_DEFCONFIG'
         required: true
-        default: 'oppo6765_defconfig'
+        default: 'CPH2185_defconfig'
       KERNEL_HOTFIX:
         description: 'KERNEL_HOTFIX'
         required: false
